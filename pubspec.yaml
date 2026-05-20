@@ -19,6 +19,7 @@ dependencies:
 
   # HTTP para API da Bíblia (IMPORTANTE pra próxima fase)
   http: ^1.2.1
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:

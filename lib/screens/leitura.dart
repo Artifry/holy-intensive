@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'config.dart';
 
 class LeituraPage extends StatefulWidget {
   const LeituraPage({super.key});
@@ -13,16 +15,20 @@ class _LeituraPageState extends State<LeituraPage> {
   String texto = "Carregando...";
   String livro = "john";
   int capitulo = 3;
+  String versao = "kjv"; // padrão inglês
 
   @override
   void initState() {
     super.initState();
-    buscarVersiculo();
+    carregarProgresso();
   }
 
+  // 🔥 BUSCAR VERSÍCULO
   Future<void> buscarVersiculo() async {
     final response = await http.get(
-      Uri.parse("https://bible-api.com/$livro+$capitulo"),
+      Uri.parse(
+        "https://bible-api.com/${livro.replaceAll(" ", "%20")}+$capitulo?translation=$versao",
+      ),
     );
 
     if (response.statusCode == 200) {
@@ -40,6 +46,25 @@ class _LeituraPageState extends State<LeituraPage> {
     }
   }
 
+  // 💾 SALVAR PROGRESSO
+  Future<void> salvarProgresso() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('livro', livro);
+    await prefs.setInt('capitulo', capitulo);
+  }
+
+  // 🔄 CARREGAR PROGRESSO
+  Future<void> carregarProgresso() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      livro = prefs.getString('livro') ?? "john";
+      capitulo = prefs.getInt('capitulo') ?? 3;
+    });
+
+    buscarVersiculo();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,6 +74,7 @@ class _LeituraPageState extends State<LeituraPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // 📚 SELEÇÃO
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -56,7 +82,6 @@ class _LeituraPageState extends State<LeituraPage> {
                   value: livro,
                   items:
                       [
-                            // Antigo Testamento
                             "genesis",
                             "exodus",
                             "leviticus",
@@ -96,8 +121,6 @@ class _LeituraPageState extends State<LeituraPage> {
                             "haggai",
                             "zechariah",
                             "malachi",
-
-                            // Novo Testamento
                             "matthew",
                             "mark",
                             "luke",
@@ -135,6 +158,23 @@ class _LeituraPageState extends State<LeituraPage> {
                       livro = value!;
                     });
                     buscarVersiculo();
+                    salvarProgresso();
+                  },
+                ),
+                DropdownButton<String>(
+                  value: versao,
+                  items: const [
+                    DropdownMenuItem(value: "kjv", child: Text("🇺🇸 Inglês")),
+                    DropdownMenuItem(
+                      value: "almeida",
+                      child: Text("🇧🇷 Português"),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      versao = value!;
+                    });
+                    buscarVersiculo();
                   },
                 ),
 
@@ -151,6 +191,7 @@ class _LeituraPageState extends State<LeituraPage> {
                       capitulo = value!;
                     });
                     buscarVersiculo();
+                    salvarProgresso();
                   },
                 ),
               ],
@@ -158,6 +199,7 @@ class _LeituraPageState extends State<LeituraPage> {
 
             const SizedBox(height: 10),
 
+            // 📖 TEXTO
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
@@ -169,15 +211,19 @@ class _LeituraPageState extends State<LeituraPage> {
 
             const SizedBox(height: 10),
 
+            // ⬅️➡️ BOTÕES
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    setState(() {
-                      if (capitulo > 1) capitulo--;
-                    });
-                    buscarVersiculo();
+                    if (capitulo > 1) {
+                      setState(() {
+                        capitulo--;
+                      });
+                      buscarVersiculo();
+                      salvarProgresso();
+                    }
                   },
                   child: const Text("Anterior"),
                 ),
@@ -187,6 +233,7 @@ class _LeituraPageState extends State<LeituraPage> {
                       capitulo++;
                     });
                     buscarVersiculo();
+                    salvarProgresso();
                   },
                   child: const Text("Próximo"),
                 ),
@@ -196,7 +243,7 @@ class _LeituraPageState extends State<LeituraPage> {
         ),
       ),
 
-      // 👇 navegação do app
+      // 📱 NAV BAR
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
         items: const [
