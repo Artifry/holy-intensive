@@ -1,17 +1,17 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 
-class BibliaService {
-  final String baseUrl = 'https://bible-api.com'; // 👈 SUA API AQUI
+class BibleService {
+  static Future<Map<String, dynamic>> carregarBiblia(String idioma) async {
+    String path;
 
-  Future<String> buscarVersiculo(String referencia) async {
-    final response = await http.get(Uri.parse('$baseUrl/$referencia'));
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['text'];
+    if (idioma == "pt") {
+      path = "assets/bible/bible_pt.json";
     } else {
-      throw Exception('Erro ao carregar versículo');
+      path = "assets/bible/bible_en.json";
     }
+
+    final jsonString = await rootBundle.loadString(path);
+    return jsonDecode(jsonString);
   }
 }

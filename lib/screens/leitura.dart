@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'config.dart';
 
 class LeituraPage extends StatefulWidget {
   const LeituraPage({super.key});
@@ -11,185 +8,211 @@ class LeituraPage extends StatefulWidget {
   State<LeituraPage> createState() => _LeituraPageState();
 }
 
-class _LeituraPageState extends State<LeituraPage> {
+class _LeituraPageState extends State<LeituraPage>
+    with SingleTickerProviderStateMixin {
   String texto = "Carregando...";
-  String livro = "john";
-  int capitulo = 3;
-  String versao = "kjv"; // padrão inglês
+  String livro = "genesis";
+  int capitulo = 1;
+  String idioma = "pt";
+  String statusSync = "offline";
+
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  final List<String> listaLivros = [
+    "genesis",
+    "exodus",
+    "leviticus",
+    "numbers",
+    "deuteronomy",
+    "joshua",
+    "judges",
+    "ruth",
+    "1 samuel",
+    "2 samuel",
+    "1 kings",
+    "2 kings",
+    "1 chronicles",
+    "2 chronicles",
+    "ezra",
+    "nehemiah",
+    "esther",
+    "job",
+    "psalms",
+    "proverbs",
+    "ecclesiastes",
+    "song of solomon",
+    "isaiah",
+    "jeremiah",
+    "lamentations",
+    "ezekiel",
+    "daniel",
+    "hosea",
+    "joel",
+    "amos",
+    "obadiah",
+    "jonah",
+    "micah",
+    "nahum",
+    "habakkuk",
+    "zephaniah",
+    "haggai",
+    "zechariah",
+    "malachi",
+    "matthew",
+    "mark",
+    "luke",
+    "john",
+    "acts",
+    "romans",
+    "1 corinthians",
+    "2 corinthians",
+    "galatians",
+    "ephesians",
+    "philippians",
+    "colossians",
+    "1 thessalonians",
+    "2 thessalonians",
+    "1 timothy",
+    "2 timothy",
+    "titus",
+    "philemon",
+    "hebrews",
+    "james",
+    "1 peter",
+    "2 peter",
+    "1 john",
+    "2 john",
+    "3 john",
+    "jude",
+    "revelation",
+  ];
 
   @override
   void initState() {
     super.initState();
-    carregarProgresso();
-  }
 
-  // 🔥 BUSCAR VERSÍCULO
-  Future<void> buscarVersiculo() async {
-    final response = await http.get(
-      Uri.parse(
-        "https://bible-api.com/${livro.replaceAll(" ", "%20")}+$capitulo?translation=$versao",
-      ),
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
     );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(_controller);
 
-      String resultado = "";
+    iniciar();
+  }
 
-      for (var v in data["verses"]) {
-        resultado += "${v["verse"]}. ${v["text"]}\n\n";
-      }
+  Future<void> iniciar() async {
+    await carregarPreferencias();
+    buscarVersiculo(); // 🔥 por enquanto fake
+    sincronizarDados();
+  }
 
-      setState(() {
-        texto = resultado;
-      });
+  Future<void> carregarPreferencias() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    livro = prefs.getString('livro') ?? "genesis";
+    capitulo = prefs.getInt('capitulo') ?? 1;
+    idioma = prefs.getString('idioma') ?? "pt";
+
+    if (!listaLivros.contains(livro)) {
+      livro = "genesis";
     }
   }
 
-  // 💾 SALVAR PROGRESSO
+  // 🔥 TEMPORÁRIO (até você criar JSON da bíblia)
+  void buscarVersiculo() {
+    setState(() {
+      texto =
+          "📖 $livro capítulo $capitulo\n\n(Conteúdo da Bíblia será carregado localmente depois)";
+    });
+  }
+
   Future<void> salvarProgresso() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('livro', livro);
     await prefs.setInt('capitulo', capitulo);
   }
 
-  // 🔄 CARREGAR PROGRESSO
-  Future<void> carregarProgresso() async {
-    final prefs = await SharedPreferences.getInstance();
-
+  Future<void> sincronizarDados() async {
     setState(() {
-      livro = prefs.getString('livro') ?? "john";
-      capitulo = prefs.getInt('capitulo') ?? 3;
+      statusSync = "syncando";
     });
 
-    buscarVersiculo();
+    _controller.repeat(reverse: true);
+
+    await Future.delayed(const Duration(seconds: 2));
+
+    setState(() {
+      statusSync = "online";
+    });
+
+    _controller.stop();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("$livro $capitulo"), centerTitle: true),
+      appBar: AppBar(
+        title: Text("$livro $capitulo"),
+        centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: statusSync == "syncando"
+                ? FadeTransition(
+                    opacity: _animation,
+                    child: const Icon(
+                      Icons.circle,
+                      color: Colors.blue,
+                      size: 14,
+                    ),
+                  )
+                : Icon(
+                    Icons.circle,
+                    color: statusSync == "online" ? Colors.green : Colors.red,
+                    size: 14,
+                  ),
+          ),
+        ],
+      ),
 
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 📚 SELEÇÃO
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                DropdownButton<String>(
-                  value: livro,
-                  items:
-                      [
-                            "genesis",
-                            "exodus",
-                            "leviticus",
-                            "numbers",
-                            "deuteronomy",
-                            "joshua",
-                            "judges",
-                            "ruth",
-                            "1 samuel",
-                            "2 samuel",
-                            "1 kings",
-                            "2 kings",
-                            "1 chronicles",
-                            "2 chronicles",
-                            "ezra",
-                            "nehemiah",
-                            "esther",
-                            "job",
-                            "psalms",
-                            "proverbs",
-                            "ecclesiastes",
-                            "song of solomon",
-                            "isaiah",
-                            "jeremiah",
-                            "lamentations",
-                            "ezekiel",
-                            "daniel",
-                            "hosea",
-                            "joel",
-                            "amos",
-                            "obadiah",
-                            "jonah",
-                            "micah",
-                            "nahum",
-                            "habakkuk",
-                            "zephaniah",
-                            "haggai",
-                            "zechariah",
-                            "malachi",
-                            "matthew",
-                            "mark",
-                            "luke",
-                            "john",
-                            "acts",
-                            "romans",
-                            "1 corinthians",
-                            "2 corinthians",
-                            "galatians",
-                            "ephesians",
-                            "philippians",
-                            "colossians",
-                            "1 thessalonians",
-                            "2 thessalonians",
-                            "1 timothy",
-                            "2 timothy",
-                            "titus",
-                            "philemon",
-                            "hebrews",
-                            "james",
-                            "1 peter",
-                            "2 peter",
-                            "1 john",
-                            "2 john",
-                            "3 john",
-                            "jude",
-                            "revelation",
-                          ]
-                          .map(
-                            (l) => DropdownMenuItem(value: l, child: Text(l)),
-                          )
-                          .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      livro = value!;
-                    });
-                    buscarVersiculo();
-                    salvarProgresso();
-                  },
+                Expanded(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: livro,
+                    items: listaLivros
+                        .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() => livro = value!);
+                      buscarVersiculo();
+                      salvarProgresso();
+                    },
+                  ),
                 ),
-                DropdownButton<String>(
-                  value: versao,
-                  items: const [
-                    DropdownMenuItem(value: "kjv", child: Text("🇺🇸 Inglês")),
-                    DropdownMenuItem(
-                      value: "almeida",
-                      child: Text("🇧🇷 Português"),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      versao = value!;
-                    });
-                    buscarVersiculo();
-                  },
-                ),
+
+                const SizedBox(width: 10),
 
                 DropdownButton<int>(
                   value: capitulo,
-                  items: List.generate(50, (index) => index + 1)
-                      .map(
-                        (c) =>
-                            DropdownMenuItem(value: c, child: Text("Cap $c")),
-                      )
+                  items: List.generate(50, (i) => i + 1)
+                      .map((c) => DropdownMenuItem(value: c, child: Text("$c")))
                       .toList(),
                   onChanged: (value) {
-                    setState(() {
-                      capitulo = value!;
-                    });
+                    setState(() => capitulo = value!);
                     buscarVersiculo();
                     salvarProgresso();
                   },
@@ -199,7 +222,6 @@ class _LeituraPageState extends State<LeituraPage> {
 
             const SizedBox(height: 10),
 
-            // 📖 TEXTO
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
@@ -211,16 +233,13 @@ class _LeituraPageState extends State<LeituraPage> {
 
             const SizedBox(height: 10),
 
-            // ⬅️➡️ BOTÕES
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 ElevatedButton(
                   onPressed: () {
                     if (capitulo > 1) {
-                      setState(() {
-                        capitulo--;
-                      });
+                      setState(() => capitulo--);
                       buscarVersiculo();
                       salvarProgresso();
                     }
@@ -229,9 +248,7 @@ class _LeituraPageState extends State<LeituraPage> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    setState(() {
-                      capitulo++;
-                    });
+                    setState(() => capitulo++);
                     buscarVersiculo();
                     salvarProgresso();
                   },
@@ -241,18 +258,6 @@ class _LeituraPageState extends State<LeituraPage> {
             ),
           ],
         ),
-      ),
-
-      // 📱 NAV BAR
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book),
-            label: "Leitura",
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-        ],
       ),
     );
   }

@@ -1,10 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class ConfigPage extends StatelessWidget {
-  final String versao;
-  final Function(String) onChange;
+class ConfigPage extends StatefulWidget {
+  const ConfigPage({super.key});
 
-  const ConfigPage({super.key, required this.versao, required this.onChange});
+  @override
+  State<ConfigPage> createState() => _ConfigPageState();
+}
+
+class _ConfigPageState extends State<ConfigPage> {
+  String idioma = "pt";
+
+  @override
+  void initState() {
+    super.initState();
+    carregarIdioma();
+  }
+
+  Future<void> carregarIdioma() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      idioma = prefs.getString('idioma') ?? "pt";
+    });
+  }
+
+  Future<void> salvarIdioma(String novoIdioma) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('idioma', novoIdioma);
+
+    setState(() {
+      idioma = novoIdioma;
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("✅ Idioma atualizado")));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,18 +55,14 @@ class ConfigPage extends StatelessWidget {
             const SizedBox(height: 10),
 
             DropdownButton<String>(
-              value: versao,
+              value: idioma,
+              isExpanded: true,
               items: const [
-                DropdownMenuItem(value: "kjv", child: Text("🇺🇸 Inglês")),
-                DropdownMenuItem(
-                  value: "almeida",
-                  child: Text("🇧🇷 Português"),
-                ),
-                DropdownMenuItem(value: "rv1960", child: Text("🇪🇸 Espanhol")),
+                DropdownMenuItem(value: "pt", child: Text("🇧🇷 Português")),
+                DropdownMenuItem(value: "en", child: Text("🇺🇸 Inglês")),
               ],
               onChanged: (value) {
-                onChange(value!);
-                Navigator.pop(context);
+                salvarIdioma(value!);
               },
             ),
           ],
